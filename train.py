@@ -85,4 +85,4 @@ def train(args):
         writer.add_scalar('Parameter/Learning_Rate_G-NET',
                           opt.param_groups[0]['lr'],
                           epoch + 1)
-        # torch.save(C_model.state_dict(), './cheackpoint/model.ckpt')
+        torch.save(model.state_dict(), './cheackpoint/model.ckpt')
