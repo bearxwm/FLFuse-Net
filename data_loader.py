@@ -1,163 +1,133 @@
 import os
 import numpy as np
-from PIL import Image
 from torch.utils.data import Dataset
-from torchvision.transforms import ToTensor, MyRandomCrop, RandomCrop, Resize
+from torchvision.transforms import ToTensor
+import random
+import cv2
 
 
-class NIRData(Dataset):
+class TrainData(Dataset):
+    def __init__(self, directory, FLAGS):
+        super(TrainData, self).__init__()
+        self.FLAGS = FLAGS
+        self.directory = directory
+        self.data_list_o = []
+        self.data_list = []
 
-    def __init__(self, file_path_a, args):
-        super(NIRData, self).__init__()
+        file_dir = self.directory + '/'
 
-        self.file_path_a = file_path_a
-        self.image_path_a = os.listdir(self.file_path_a)
+        for f in os.listdir(file_dir):
 
-        n = np.random.choice(len(self.image_path_a), args.data_per_epoch_train, replace=True)
+            if '_IR' in f:
+                self.data_list_o.append(
+                    file_dir + f.split('_')[0] + '_')
 
-        self.mini_batch_a = []
-        for index in n:
-            self.mini_batch_a.append(self.image_path_a[index])
+        for i in range(self.FLAGS.data_per_epoch_train):
+            self.data_list.append(random.choice(self.data_list_o))
 
-    def __getitem__(self, indxe):
-        img_path_a = self.mini_batch_a[indxe]
-        img_a = Image.open(self.file_path_a + img_path_a)
 
-        img_a = RandomCrop((128, 128), pad_if_needed=True)(img_a)
+    def __getitem__(self, index):
 
-        img_a = ToTensor()(img_a)
-        img_b = img_a
-        return img_a, img_b
+        IR = cv2.imread(str(self.data_list[index]) + 'IR.png', cv2.IMREAD_GRAYSCALE)
+        IR = np.float32(IR / 255.)
+
+        VI = cv2.imread(str(self.data_list[index]) + 'VI.png', cv2.IMREAD_GRAYSCALE)
+        VI = np.float32(VI / 255.)
+
+        IR, VI = self.random_crop(IR, VI, (128, 128))
+
+        return ToTensor()(IR), ToTensor()(VI)
+
+    @staticmethod
+    def random_crop(img_a, img_b, crop_size):
+        height, width = img_a.shape[:2]
+        crop_height, crop_width = crop_size
+
+        if crop_width > width or crop_height > height:
+            top, bottom, left, right = 0, 0, 0, 0
+            if crop_height > height:
+                top = (crop_height - height) // 2
+                bottom = crop_height - height - top
+            if crop_width > width:
+                left = (crop_width - width) // 2
+                right = crop_width - width - left
+            color = [0, 0, 0]
+            padded_img_a = cv2.copyMakeBorder(img_a, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+            padded_img_b = cv2.copyMakeBorder(img_b, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+
+        else:
+            padded_img_a = img_a
+            padded_img_b = img_b
+
+        x_start = random.randint(0, padded_img_a.shape[1] - crop_width)
+        y_start = random.randint(0, padded_img_a.shape[0] - crop_height)
+
+        cropped_img_a = padded_img_a[y_start:y_start + crop_height, x_start:x_start + crop_width]
+        cropped_img_b = padded_img_b[y_start:y_start + crop_height, x_start:x_start + crop_width]
+
+        return cropped_img_a, cropped_img_b
 
     def __len__(self):
-        return len(self.mini_batch_a)
+        return len(self.data_list)
 
-
-class NIRDataDual(Dataset):
-
-    def __init__(self, file_path_a, file_path_b, args):
-        super(NIRDataDual, self).__init__()
-
-        self.file_path_a = file_path_a
-        self.image_path_a = os.listdir(self.file_path_a)
-
-        self.file_path_b = file_path_b
-        self.image_path_b = os.listdir(self.file_path_b)
-
-        n = np.random.choice(len(self.image_path_a), args.data_per_epoch_train, replace=True)
-
-        self.mini_batch_a = []
-        self.mini_batch_b = []
-        for index in n:
-            self.mini_batch_a.append(self.image_path_a[index])
-            self.mini_batch_b.append(self.image_path_b[index])
-
-    def __getitem__(self, indxe):
-        img_path_a = self.mini_batch_a[indxe]
-        img_a = Image.open(self.file_path_a + img_path_a)
-
-        img_path_b = self.mini_batch_b[indxe]
-        img_b = Image.open(self.file_path_b + img_path_b)
-
-        img_a, img_b = MyRandomCrop((128, 128), pad_if_needed=True)(img_a, img_b)
-
-        img_a = ToTensor()(img_a)
-        img_b = ToTensor()(img_b)
-        return img_a, img_b
-
-    def __len__(self):
-        return len(self.mini_batch_a)
 
 
 class TestData(Dataset):
-
-    def __init__(self, file_path_a, file_path_b):
+    def __init__(self, directory, DataSetName):
         super(TestData, self).__init__()
 
-        self.file_path_a = file_path_a
-        self.image_path_a = os.listdir(self.file_path_a)
+        self.directory = directory
+        self.data_list = []
+        self.DataSetName = DataSetName
 
-        self.file_path_b = file_path_b
-        self.image_path_b = os.listdir(self.file_path_b)
+        file_dir = self.directory + '/'
 
-    def __getitem__(self, indxe):
-        img_path_a = self.image_path_a[indxe]
-        img_a = Image.open(self.file_path_a + img_path_a)
+        for f in os.listdir(file_dir):
 
-        img_path_b = self.image_path_b[indxe]
-        img_b = Image.open(self.file_path_b + img_path_b)
+            if '_IR' in f:
+                self.data_list.append(
+                    file_dir + f.split('_')[0] + '_')
 
-        img_a = ToTensor()(img_a)
-        img_b = ToTensor()(img_b)
-        return img_a, img_b
+    def __getitem__(self, index):
 
-    def __len__(self):
-        return len(self.image_path_a)
+        if self.DataSetName == 'LLVIP_RGB':
+            end_ir = '.jpg'
+            end_VI = '.jpg'
 
+        elif self.DataSetName == 'M3FD_RGB':
+            end_ir = '.png'
+            end_VI = '.png'
 
-class TestDLData(Dataset):
+        elif self.DataSetName == 'Road_RGB':
+            end_ir = '.jpg'
+            end_VI = '.jpg'
 
-    def __init__(self, file_path_a, file_path_b):
-        super(TestDLData, self).__init__()
+        elif self.DataSetName == 'TNO':
+            end_ir = '.png'
+            end_VI = '.png'
 
-        self.file_path_a = file_path_a
-        self.image_path_a = os.listdir(self.file_path_a)
+        IR = cv2.imread(self.data_list[index] + 'IR' + end_ir, cv2.IMREAD_GRAYSCALE)
+        IR = np.float32(IR / 255.)
 
-        self.file_path_b = file_path_b
-        self.image_path_b = os.listdir(self.file_path_b)
+        VI = cv2.imread(self.data_list[index] + 'VI' + end_VI, cv2.IMREAD_GRAYSCALE)
+        VI = np.float32(VI / 255.)
 
-    def __getitem__(self, indxe):
-        img_path_a = self.image_path_a[indxe]
-        img_a = Image.open(self.file_path_a + img_path_a).convert('L')
-        h, w = img_a.size
-        # print(img_a.size)
+        return ToTensor()(IR), ToTensor()(VI)
 
-        img_path_b = self.image_path_b[indxe]
-        img_b = Image.open(self.file_path_b + img_path_b).convert('L')
-        # print(img_b.size)
-        # img_b = Resize((400, 300))(img_b)
-
-        img_a = ToTensor()(img_a)
-        img_b = ToTensor()(img_b)
-        return img_a, img_b
 
     def __len__(self):
-        return len(self.image_path_a)
+        return len(self.data_list)
 
 
 def testpath(image_type):
-    a_path = None
-    b_path = None
+    path = None
     out_path = None
-    rootpath = 'D:/Train_data/Compare_Date/'
 
-    if image_type is 'TNO':
-        a_path = 'D:/XWM_Workplace/Compare_Data/TNO/SR/4X/test_ir_sr/'
-        b_path = 'D:/XWM_Workplace/Compare_Data/TNO/SR/4X/test_vis_sr/'
+    if image_type == 'TNO':
+        path = './Dataset/TNO'
         out_path = './fused_images/TNO/'
-    elif image_type is 'NIR':
-        a_path = 'D:/XWM_Workplace/Compare_Data/RGB_NIR/SR/GRAY/4X/ir_sr_12/'
-        b_path = 'D:/XWM_Workplace/Compare_Data/RGB_NIR/SR/GRAY/4X/vis_sr_12/'
+    elif image_type == 'NIR':
+        path = 'D:/Dataset/NIR'
         out_path = './fused_images/NIR/'
-    elif image_type is 'CT_MRI':
-        a_path = rootpath + 'CT_MRI/test_CT/'
-        b_path = rootpath + 'CT_MRI/test_MRI/'
-        out_path = rootpath + 'CT_MRI/fused_images/'
-    elif image_type is 'MEF':
-        a_path = rootpath + 'MEF/test_A_gray/'
-        b_path = rootpath + 'MEF/test_B_gray/'
-        out_path = rootpath + 'MEF/fused_images/'
-    elif image_type is 'LAYOUT':
-        a_path = rootpath + 'LAYOUT/test_A_grey/'
-        b_path = rootpath + 'LAYOUT/test_B_grey/'
-        out_path = rootpath + 'LAYOUT/fused_images/'
-    elif image_type is '1W':
-        a_path = 'D:/CrossFusion-Net/Test/Data/GREY/'
-        b_path = 'D:/CrossFusion-Net/Test/Data/GREY/'
-        out_path = './1W/'
-    elif image_type is 'DL':
-        a_path = r'C:\Users\XWM\Desktop\peizhun\IR/'
-        b_path = r'C:\Users\XWM\Desktop\peizhun\VIS/'
-        out_path = r'C:\Users\XWM\Desktop\DL_COMPARE\FLFuse/'
 
-    return a_path, b_path, out_path
+    return path, out_path

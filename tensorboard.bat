@@ -1,0 +1,1 @@
+cmd/k "conda activate ImageFusion&&cd/d C:\Users\Bear\PycharmProjects\FLFuse-Net\logs&&tensorboard --logdir=exp1" --port=6006

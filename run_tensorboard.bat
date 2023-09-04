@@ -1,1 +1,0 @@
-cmd/k "conda activate torch1.6&&cd/d D:\CrossFusion-Net\Workplace\50w\C(8)_T(1)_E(1)_D(1)_SB(8)_SL(5)\logs&&tensorboard --logdir=exp1" --port=6006

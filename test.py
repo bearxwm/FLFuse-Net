@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import ToPILImage
 from tqdm import tqdm
 
-from data_loder import testpath, TestDLData
+from data_loader import testpath, TestData
 from model import *
 from utils import get_parameter_number
 # import cv2
@@ -23,29 +23,27 @@ def parse_args():
     return parser.parse_args()
 
 
-def genetrate(a_path, b_path, out_path, args, batch_num=1):
+def genetrate(path, image_type, out_path, args, batch_num=1):
     # Time
     start = time.time()
 
     # Data
-    data = TestDLData(a_path, b_path)
+    data = TestData(path, image_type)
 
     # Data_Loader
 
     test_data = DataLoader(dataset=data, batch_size=batch_num, pin_memory=True)
 
     # BUILD Model
+    # if use /model_with_dege_branch
     model = FLFuseNet().to(args.device)
     print('C_NET:', get_parameter_number(model))
-    # if use /model_with_dege_branch
     model.load_state_dict(torch.load('./cheackpoint/model_with_dege_branch.ckpt', map_location=args.device))
 
+    # if use /model_without_dege_branch
     # model = FLFuseNet_NoEdgeBranch().to(args.device)
     # print('C_NET:', get_parameter_number(model))
-    # if use /model_without_dege_branch
     # model.load_state_dict(torch.load('./cheackpoint/model_without_dege_branch.ckpt', map_location=args.device))
-
-
 
     # model.eval()
     with torch.no_grad():
@@ -59,21 +57,15 @@ def genetrate(a_path, b_path, out_path, args, batch_num=1):
                 outputs = model(images_a, images_b)
                 outputs = torch.clamp(outputs, 0, 1)
 
-                if batch_num > 1:
-                    for j in range(len(a_lr-1)):
-                        outputssave = outputs[j]
-                        FUSED_PATH = os.path.join(out_path, 'out%03d.png' % (i * batch_num + j + 1))
-                        outputssave = ToPILImage()(torch.squeeze(outputssave.data.cpu()))
-                        # outputssave.save(FUSED_PATH)
-                else:
-                    FUSED_PATH = os.path.join(out_path, 'out%03d.png' % (i + 1))
-                    outputs = ToPILImage()(torch.squeeze(outputs.data.cpu()))
-                    outputs.save(FUSED_PATH)
+                FUSED_PATH = os.path.join(out_path, 'out%03d.png' % (i + 1))
+                outputs = ToPILImage()(torch.squeeze(outputs.data.cpu()))
+                outputs.save(FUSED_PATH)
 
                 # outputs = (torch.squeeze(outputs.cpu())).numpy()
                 # cv2.imwrite(FUSED_PATH, outputs*255, [int(cv2.IMWRITE_PNG_COMPRESSION), 0])
 
                 t.update(len(a_lr))
+
         tqdm.write('|| TIME: %.4f s' % (time.time() - start))
         tqdm.write('|| Pertime: %.4f ms' % (((time.time() - start) * 1000) / len(test_data)))
         tqdm.write('|| Out_path: %s' % out_path)
@@ -82,16 +74,15 @@ def genetrate(a_path, b_path, out_path, args, batch_num=1):
 def fuse(args):
     fusetype = [
         'TNO',
-        'NIR'
+        # 'NIR'
 
     ]
 
     for image_type in fusetype:
         print('------%s fuse start!------' % image_type)
-        a_path, b_path, out_path = testpath(image_type)
-        genetrate(a_path, b_path, out_path, args, batch_num=args.test_batch)
+        path, out_path = testpath(image_type)
+        genetrate(path, image_type, out_path, args, batch_num=args.test_batch)
         print('-----------end!-----------')
-
 
 args = parse_args()
 fuse(args)
