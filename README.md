@@ -47,4 +47,4 @@ then pip the needed packages
 ### Train
 1. Use dataset at http://matthewalunbrown.com/nirscene/nirscene.html. Make dateset and edit the 'args.train_path' in main.py
 2. Set run Parameters in main.py
-4. Run train.py
+4. Run main.py
