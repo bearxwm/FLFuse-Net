@@ -45,6 +45,6 @@ then pip the needed packages
 2. Run test.py
 
 ### Train
-1. Use dataset at http://matthewalunbrown.com/nirscene/nirscene.html. Make dateset and edit the 'args.train_path' in main.py
+1. Use dataset at https://www.epfl.ch/labs/ivrl/research/downloads/rgb-nir-scene-dataset/. Make dateset and edit the 'args.train_path' in main.py
 2. Set run Parameters in main.py
 4. Run main.py
